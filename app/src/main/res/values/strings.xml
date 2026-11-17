@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">PDF Maker</string>
+    <string name="app_tagline">Offline-First Liquid Glass PDF Studio</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_files">Files</string>
+    <string name="nav_tools">Tools</string>
+    <string name="nav_profile">Profile</string>
+    <string name="action_create_pdf">Create PDF</string>
+    <string name="action_sign_in_google">Sign in with Google</string>
+    <string name="action_continue_guest">Continue as Guest</string>
+    <string name="label_guest_user">Guest Studio</string>
+    <string name="label_offline_private">100% On-Device Processing</string>
+    <string name="error_pdf_locked">This PDF is password protected. Enter password to unlock.</string>
+    <string name="error_generic_pdf">Unable to process this PDF. Please verify the file and try again.</string>
+</resources>

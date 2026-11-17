@@ -1,0 +1,6 @@
+{
+  "name": "PDF Maker",
+  "description": "Offline-first Android PDF Maker, editor, compressor, and document studio with cloud config and separate web Admin Panel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

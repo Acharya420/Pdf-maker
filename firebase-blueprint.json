@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile, preferences, and aggregate offline PDF usage counters.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the user." },
+        "displayName": { "type": "string", "description": "Display name of the user." },
+        "email": { "type": "string", "description": "User email address." },
+        "photoUrl": { "type": "string", "description": "Profile avatar URL." },
+        "preferredTheme": { "type": "string", "enum": ["system", "light", "dark"], "description": "App theme preference." },
+        "preferredLanguage": { "type": "string", "enum": ["en", "es", "hi", "fr", "de"], "description": "App language code." },
+        "pdfsCreatedCount": { "type": "integer", "description": "Total PDFs created or processed." },
+        "totalBytesProcessed": { "type": "integer", "description": "Total bytes processed locally." },
+        "status": { "type": "string", "enum": ["active", "suspended"], "description": "Account status managed by admins." },
+        "lastActiveAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last activity." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp of creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of last update." }
+      },
+      "required": ["userId", "displayName", "preferredTheme", "preferredLanguage", "pdfsCreatedCount", "totalBytesProcessed", "status", "createdAt", "updatedAt"]
+    },
+    "PdfSyncRecord": {
+      "title": "PdfSyncRecord",
+      "description": "Privacy-safe metadata record for a locally generated or processed PDF (no raw files uploaded).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase Auth UID." },
+        "fileName": { "type": "string", "description": "PDF file name." },
+        "operation": { "type": "string", "enum": ["image_to_pdf", "merge", "split", "compress", "organize", "rotate", "convert", "protect"], "description": "PDF operation type." },
+        "pageCount": { "type": "integer", "description": "Number of pages in output PDF." },
+        "fileSizeBytes": { "type": "integer", "description": "Output PDF size in bytes." },
+        "isFavorite": { "type": "boolean", "description": "Whether the document is starred as favorite." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server update timestamp." }
+      },
+      "required": ["userId", "fileName", "operation", "pageCount", "fileSizeBytes", "isFavorite", "createdAt", "updatedAt"]
+    },
+    "AppGlobalConfig": {
+      "title": "AppGlobalConfig",
+      "description": "Remote app version management, maintenance mode, and feature toggles controlled by the Admin Panel.",
+      "type": "object",
+      "properties": {
+        "maintenanceMode": { "type": "boolean", "description": "Whether the app is in maintenance mode." },
+        "maintenanceMessage": { "type": "string", "description": "Message displayed during maintenance mode." },
+        "latestVersionCode": { "type": "integer", "description": "Latest Android versionCode." },
+        "latestVersionName": { "type": "string", "description": "Latest Android versionName." },
+        "minSupportedVersionCode": { "type": "integer", "description": "Minimum supported Android versionCode." },
+        "forceUpdate": { "type": "boolean", "description": "Whether users below minSupportedVersionCode must update." },
+        "releaseNotes": { "type": "string", "description": "Release notes for latest version." },
+        "enableImageToPdf": { "type": "boolean" },
+        "enableCompress": { "type": "boolean" },
+        "enableMerge": { "type": "boolean" },
+        "enableSplit": { "type": "boolean" },
+        "enableOrganizer": { "type": "boolean" },
+        "enablePasswordProtect": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp of update." }
+      },
+      "required": ["maintenanceMode", "maintenanceMessage", "latestVersionCode", "latestVersionName", "minSupportedVersionCode", "forceUpdate", "enableImageToPdf", "enableCompress", "enableMerge", "enableSplit", "enableOrganizer", "enablePasswordProtect", "updatedAt"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "In-app announcements published from the Admin Panel.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "severity": { "type": "string", "enum": ["info", "warning", "update"] },
+        "isActive": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "severity", "isActive", "createdBy", "createdAt", "updatedAt"]
+    },
+    "UserFeedback": {
+      "title": "UserFeedback",
+      "description": "User-submitted feedback and bug reports managed by admins.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "category": { "type": "string", "enum": ["bug", "feature", "general"] },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "appVersion": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "in_review", "resolved"] },
+        "adminReply": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "category", "subject", "message", "appVersion", "status", "createdAt", "updatedAt"]
+    },
+    "AdminRole": {
+      "title": "AdminRole",
+      "description": "Admin role assignment document keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["super_admin", "moderator"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Per-user profile and preference document."
+    },
+    "/users/{userId}/pdf_records/{recordId}": {
+      "schema": { "$ref": "#/entities/PdfSyncRecord" },
+      "description": "Per-user synced PDF metadata history."
+    },
+    "/app_config/{configId}": {
+      "schema": { "$ref": "#/entities/AppGlobalConfig" },
+      "description": "Global feature flags, maintenance mode, and version metadata."
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/entities/Announcement" },
+      "description": "Admin-managed announcements shown to users."
+    },
+    "/feedback/{feedbackId}": {
+      "schema": { "$ref": "#/entities/UserFeedback" },
+      "description": "User feedback submissions and admin resolutions."
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminRole" },
+      "description": "Trusted admin role registry."
+    }
+  }
+}

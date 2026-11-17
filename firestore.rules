@@ -1,0 +1,246 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HARDENED HELPERS ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (
+          'email' in request.auth.token &&
+          request.auth.token.email == 'soumyadipacharya481@gmail.com' &&
+          'email_verified' in request.auth.token &&
+          request.auth.token.email_verified == true
+        )
+      );
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    // --- VALIDATION BLUEPRINTS ---
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 500)) &&
+             data.preferredTheme in ['system', 'light', 'dark'] &&
+             data.preferredLanguage in ['en', 'es', 'hi', 'fr', 'de'] &&
+             data.pdfsCreatedCount is int && data.pdfsCreatedCount >= 0 &&
+             data.totalBytesProcessed is int && data.totalBytesProcessed >= 0 &&
+             data.status in ['active', 'suspended'] &&
+             (!('lastActiveAt' in data) || isValidTimestamp(data.lastActiveAt)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidPdfSyncRecord(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 180 &&
+             data.operation in ['image_to_pdf', 'merge', 'split', 'compress', 'organize', 'rotate', 'convert', 'protect'] &&
+             data.pageCount is int && data.pageCount >= 1 && data.pageCount <= 10000 &&
+             data.fileSizeBytes is int && data.fileSizeBytes >= 0 &&
+             data.isFavorite is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAppGlobalConfig(data) {
+      return data.maintenanceMode is bool &&
+             data.maintenanceMessage is string && data.maintenanceMessage.size() <= 300 &&
+             data.latestVersionCode is int && data.latestVersionCode >= 1 &&
+             data.latestVersionName is string && data.latestVersionName.size() >= 1 && data.latestVersionName.size() <= 32 &&
+             data.minSupportedVersionCode is int && data.minSupportedVersionCode >= 1 &&
+             data.forceUpdate is bool &&
+             (!('releaseNotes' in data) || (data.releaseNotes is string && data.releaseNotes.size() <= 1000)) &&
+             data.enableImageToPdf is bool &&
+             data.enableCompress is bool &&
+             data.enableMerge is bool &&
+             data.enableSplit is bool &&
+             data.enableOrganizer is bool &&
+             data.enablePasswordProtect is bool &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAnnouncement(data) {
+      return data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 600 &&
+             data.severity in ['info', 'warning', 'update'] &&
+             data.isActive is bool &&
+             data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 128 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidUserFeedback(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             (!('userEmail' in data) || (data.userEmail is string && data.userEmail.size() <= 150)) &&
+             data.category in ['bug', 'feature', 'general'] &&
+             data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 120 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 1000 &&
+             data.appVersion is string && data.appVersion.size() >= 1 && data.appVersion.size() <= 32 &&
+             data.status in ['open', 'in_review', 'resolved'] &&
+             (!('adminReply' in data) || (data.adminReply is string && data.adminReply.size() <= 600)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAdminRole(data) {
+      return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 150 &&
+             data.role in ['super_admin', 'moderator'] &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    // --- COLLECTIONS ---
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isValidId(userId) &&
+                       isOwner(userId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'active' &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'preferredTheme', 'preferredLanguage', 'pdfsCreatedCount', 'totalBytesProcessed', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'photoUrl', 'preferredTheme', 'preferredLanguage', 'pdfsCreatedCount', 'totalBytesProcessed', 'status', 'lastActiveAt', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isValidId(userId) &&
+                       isSignedIn() &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt && (
+                         (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'displayName', 'updatedAt'])) ||
+                         (
+                           isOwner(userId) &&
+                           incoming().status == existing().status &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'photoUrl', 'preferredTheme', 'preferredLanguage', 'pdfsCreatedCount', 'totalBytesProcessed', 'lastActiveAt', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if isValidId(userId) && (isOwner(userId) || isAdmin());
+
+      match /pdf_records/{recordId} {
+        allow get: if isValidId(userId) && isValidId(recordId) && (isOwner(userId) || isAdmin());
+        allow list: if isValidId(userId) && (isOwner(userId) || isAdmin());
+
+        allow create: if isValidId(userId) && isValidId(recordId) &&
+                         isOwner(userId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'fileName', 'operation', 'pageCount', 'fileSizeBytes', 'isFavorite', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'fileName', 'operation', 'pageCount', 'fileSizeBytes', 'isFavorite', 'createdAt', 'updatedAt']) &&
+                         isValidPdfSyncRecord(incoming());
+
+        allow update: if isValidId(userId) && isValidId(recordId) &&
+                         isOwner(userId) &&
+                         isValidPdfSyncRecord(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['fileName', 'isFavorite', 'updatedAt']);
+
+        allow delete: if isValidId(userId) && isValidId(recordId) && (isOwner(userId) || isAdmin());
+      }
+    }
+
+    match /app_config/{configId} {
+      allow get: if isValidId(configId) && isSignedIn();
+      allow list: if isAdmin();
+
+      allow create: if isValidId(configId) && isAdmin() &&
+                       incoming().keys().hasAll(['maintenanceMode', 'maintenanceMessage', 'latestVersionCode', 'latestVersionName', 'minSupportedVersionCode', 'forceUpdate', 'enableImageToPdf', 'enableCompress', 'enableMerge', 'enableSplit', 'enableOrganizer', 'enablePasswordProtect', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['maintenanceMode', 'maintenanceMessage', 'latestVersionCode', 'latestVersionName', 'minSupportedVersionCode', 'forceUpdate', 'releaseNotes', 'enableImageToPdf', 'enableCompress', 'enableMerge', 'enableSplit', 'enableOrganizer', 'enablePasswordProtect', 'updatedAt']) &&
+                       isValidAppGlobalConfig(incoming());
+
+      allow update: if isValidId(configId) && isAdmin() &&
+                       isValidAppGlobalConfig(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['maintenanceMode', 'maintenanceMessage', 'latestVersionCode', 'latestVersionName', 'minSupportedVersionCode', 'forceUpdate', 'releaseNotes', 'enableImageToPdf', 'enableCompress', 'enableMerge', 'enableSplit', 'enableOrganizer', 'enablePasswordProtect', 'updatedAt']);
+
+      allow delete: if isValidId(configId) && isAdmin();
+    }
+
+    match /announcements/{announcementId} {
+      allow get: if isValidId(announcementId) && isSignedIn() && (existing().isActive == true || isAdmin());
+      allow list: if isSignedIn() && (existing().isActive == true || isAdmin());
+
+      allow create: if isValidId(announcementId) && isAdmin() &&
+                       incoming().createdBy == request.auth.uid &&
+                       incoming().keys().hasAll(['title', 'message', 'severity', 'isActive', 'createdBy', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['title', 'message', 'severity', 'isActive', 'createdBy', 'createdAt', 'updatedAt']) &&
+                       isValidAnnouncement(incoming());
+
+      allow update: if isValidId(announcementId) && isAdmin() &&
+                       isValidAnnouncement(incoming()) &&
+                       incoming().createdBy == existing().createdBy &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'message', 'severity', 'isActive', 'updatedAt']);
+
+      allow delete: if isValidId(announcementId) && isAdmin();
+    }
+
+    match /feedback/{feedbackId} {
+      allow get: if isValidId(feedbackId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+
+      allow create: if isValidId(feedbackId) && isSignedIn() &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'open' &&
+                       !('adminReply' in incoming()) &&
+                       incoming().keys().hasAll(['userId', 'category', 'subject', 'message', 'appVersion', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'userEmail', 'category', 'subject', 'message', 'appVersion', 'status', 'createdAt', 'updatedAt']) &&
+                       isValidUserFeedback(incoming());
+
+      allow update: if isValidId(feedbackId) && isAdmin() &&
+                       isValidUserFeedback(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminReply', 'updatedAt']);
+
+      allow delete: if isValidId(feedbackId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+    }
+
+    match /admins/{adminUid} {
+      allow get: if isValidId(adminUid) && (isOwner(adminUid) || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isValidId(adminUid) && isAdmin() &&
+                       incoming().uid == adminUid &&
+                       incoming().keys().hasAll(['uid', 'email', 'role', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['uid', 'email', 'role', 'createdAt', 'updatedAt']) &&
+                       isValidAdminRole(incoming());
+
+      allow update: if isValidId(adminUid) && isAdmin() &&
+                       isValidAdminRole(incoming()) &&
+                       incoming().uid == existing().uid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['email', 'role', 'updatedAt']);
+
+      allow delete: if isValidId(adminUid) && isAdmin();
+    }
+  }
+}
