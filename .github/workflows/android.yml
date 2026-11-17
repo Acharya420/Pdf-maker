@@ -10,16 +10,19 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Create debug keystore
+      - name: Create debug keystore everywhere
         run: |
+          keytool -genkeypair -noprompt -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -d "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
           mkdir -p ~/.android
-          keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -d "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
-          cp ~/.android/debug.keystore ./debug.keystore || true
-          mkdir -p Pdf-maker
-          cp ~/.android/debug.keystore Pdf-maker/debug.keystore || true
-          find . -name "debug.keystore" || true
+          cp debug.keystore ~/.android/debug.keystore
+          cp debug.keystore app/debug.keystore || true
+          mkdir -p Pdf-maker/app
+          cp debug.keystore Pdf-maker/debug.keystore || true
+          cp debug.keystore Pdf-maker/app/debug.keystore || true
+          cp debug.keystore ./app/app-debug.keystore || true
+          ls -R | head -n 100
       - run: gradle assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: "**/build/outputs/apk/debug/*.apk"
